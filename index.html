@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr" data-version="1.0-e1f">
+<html lang="fr" data-version="1.0-e2">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -298,7 +298,10 @@ p { margin: 0; }
   max-width: 536px; margin: 0 auto; z-index: 50;
 }
 .toast .bandeau { box-shadow: 0 6px 24px rgba(0,0,0,.18); }
-.toast .bandeau-seul { justify-content: center; text-align: center; padding: 12px 16px; white-space: pre-line; }
+.toast .bandeau-seul {
+  width: fit-content; margin: 0 auto; justify-content: center; text-align: center;
+  padding: 12px 20px; white-space: pre-line; font-weight: 700;
+}
 
 /* ---------- Pastille d'approche ---------- */
 .pastille { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
@@ -528,7 +531,7 @@ p { margin: 0; }
   }
 
   // src/app/version.js
-  var VERSION = "1.0-e1f";
+  var VERSION = "1.0-e2";
   var MODE_TEST = false;
 
   // src/app/journal.js
@@ -1086,7 +1089,7 @@ p { margin: 0; }
         el(
           "section",
           { class: "bloc" },
-          el("p", { class: "libelle" }, "Coquille de test · essai 1"),
+          el("p", { class: "libelle" }, "Coquille de test · essai 2"),
           MODE_TEST ? el(
             "p",
             { class: "petit discret" },
@@ -1096,7 +1099,7 @@ p { margin: 0; }
             "p",
             { class: "discret" },
             "Cette version sert à vérifier l’installation, le hors ligne, la mise à jour et le bouton retour. ",
-            "Les écrans de révision arrivent à l’essai 2."
+            "Le moteur de révision est en place et testé ; les écrans de révision arrivent dans les prochaines livraisons de l’essai 2."
           )
         ),
         el(
@@ -1295,6 +1298,15 @@ p { margin: 0; }
     }
   };
 
+  // src/logique/jour.js
+  var HEURE_BASCULE = 4;
+  var deux = (n) => String(n).padStart(2, "0");
+  function jourDe(instant = /* @__PURE__ */ new Date()) {
+    const d = new Date(instant);
+    const cal = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getHours() < HEURE_BASCULE ? 1 : 0), 12);
+    return `${cal.getFullYear()}-${deux(cal.getMonth() + 1)}-${deux(cal.getDate())}`;
+  }
+
   // src/ecrans/test.js
   function rangeeBouton(nom, val, faire) {
     return el(
@@ -1340,6 +1352,18 @@ p { margin: 0; }
           { class: "bloc" },
           rangeeBouton("Journal de diagnostic", `${journal.lignes().length} lignes`, () => ouvrir2("journal")),
           rangeeBouton("Nuancier des approches", "clair et sombre", () => ouvrir2("nuancier")),
+          el(
+            "div",
+            { class: "rangee", "data-test": "jour-revision" },
+            el(
+              "span",
+              { class: "rangee-nom" },
+              "Jour de révision",
+              el("br"),
+              el("span", { class: "petit discret" }, `change à ${HEURE_BASCULE} h, heure du téléphone`)
+            ),
+            el("span", { class: "rangee-val" }, jourDe(/* @__PURE__ */ new Date()))
+          ),
           el(
             "div",
             { class: "ligne-interrupteur", style: { borderTop: "1px solid var(--trait)" } },
