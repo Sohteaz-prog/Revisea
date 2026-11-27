@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr" data-version="1.0-e1c">
+<html lang="fr" data-version="1.0-e1d">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -376,7 +376,12 @@ p { margin: 0; }
 .carte-rappel { font-size: 15px; line-height: 22px; color: var(--texte-2); }
 .carte-sep { height: 1px; background: var(--trait); flex: none; }
 .carte-reponse { flex: 1; }
-.carte-ma-reponse { font-size: 14px; line-height: 20px; color: var(--texte-2); }
+.carte-ma-reponse {
+  font-size: 14px; line-height: 20px; color: var(--texte-2); flex: none;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+}
+.carte-ma-reponse.deplie { display: block; -webkit-line-clamp: unset; line-clamp: none; }
+.carte-ma-reponse[hidden] { display: none; }
 .carte-ma-reponse strong { color: var(--texte); font-weight: 600; }
 .carte-pied { display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
 .carte-pied a, .carte-pied .lien {
@@ -400,6 +405,8 @@ p { margin: 0; }
   border: var(--contour-carte) solid color-mix(in srgb, var(--app) 55%, var(--surface));
   border-radius: var(--r-carte); background: var(--surface); opacity: .7;
 }
+/* Dernière carte : plus rien dessous, juste un contour en pointillés */
+.carte-dessous-vide { border: 2px dashed var(--trait); background: transparent; opacity: 1; }
 
 /* Tampons pendant le geste */
 .tampon {
@@ -520,7 +527,7 @@ p { margin: 0; }
   }
 
   // src/app/version.js
-  var VERSION = "1.0-e1c";
+  var VERSION = "1.0-e1d";
   var MODE_TEST = false;
 
   // src/app/journal.js
@@ -602,9 +609,9 @@ p { margin: 0; }
   // src/app/reglages.js
   var DEFAUTS = Object.freeze({
     theme: "auto",
-    // auto (comme le téléphone) | clair | sombre
-    geste: "normal",
-    // sensibilité du glissement : souple | normal | ferme
+    // auto (suit le téléphone) | clair | sombre
+    geste: "souple",
+    // sensibilité (Souple retenu à l'essai 1) du glissement : souple | normal | ferme
     vibration: true,
     // petite vibration quand le seuil du geste est franchi
     contenuExemple: false
@@ -717,6 +724,16 @@ p { margin: 0; }
   var racine = null;
   var nomAccueil = null;
   var historique = !MODE_TEST;
+  var gardeArmee = false;
+  var quandSortieDemandee = null;
+  function surSortieDemandee(fn) {
+    quandSortieDemandee = fn;
+  }
+  function armerGarde() {
+    if (!historique || gardeArmee || pile.length !== 1) return;
+    histoire("pushState", { revisea: 1, n: 1 });
+    gardeArmee = true;
+  }
   function histoire(methode, etat) {
     if (!historique) return;
     try {
@@ -780,13 +797,15 @@ p { margin: 0; }
     racine = racineEl;
     nomAccueil = nomInitial;
     pile = [construire(nomInitial, params)];
-    histoire("replaceState", { revisea: 1, n: 1 });
+    histoire("replaceState", { revisea: 1, n: 0, garde: true });
     window.addEventListener("popstate", (ev) => {
       if (historique) surRetourSysteme(ev);
     });
+    for (const type of ["pointerup", "keydown"]) window.addEventListener(type, armerGarde, true);
     afficher();
   }
   function ouvrir2(nom, params) {
+    armerGarde();
     masquerHaut();
     pile.push(construire(nom, params));
     histoire("pushState", { revisea: 1, n: pile.length });
@@ -818,7 +837,14 @@ p { margin: 0; }
     } else if (haut().nom !== nomAccueil) remplacer(nomAccueil);
   }
   function surRetourSysteme(ev) {
-    const n = ev.state && ev.state.revisea ? ev.state.n : 1;
+    const n = ev.state && ev.state.revisea ? ev.state.n : 0;
+    if (n === 0) {
+      gardeArmee = false;
+      if (pile.length > 1) depilerJusqua(1);
+      journal.info("Retour depuis l’accueil : confirmation demandée");
+      if (quandSortieDemandee) quandSortieDemandee();
+      return;
+    }
     if (n > pile.length) {
       journal.info("Historique en avance, recalage", { n, pile: pile.length });
       history.go(pile.length - n);
@@ -1169,7 +1195,7 @@ p { margin: 0; }
     }, texte));
     return el("div", { class: "segments", role: "group" }, boutons);
   }
-  var THEMES = [["auto", "Comme le téléphone"], ["clair", "Clair"], ["sombre", "Sombre"]];
+  var THEMES = [["auto", "Auto"], ["clair", "Clair"], ["sombre", "Sombre"]];
   var ecranReglages = {
     creer() {
       const nomTheme = (v) => THEMES.find((t) => t[0] === v)[1];
@@ -1418,7 +1444,7 @@ p { margin: 0; }
           el("div", { class: "eval eval-connu" }, icone("coche", 22, 2.6), "Juste"),
           el("div", { class: "eval eval-rate" }, icone("croix", 22, 2.6), "Faux")
         ),
-        el("p", { class: "petit discret" }, "Le thème choisi ici reste en place : remets « Comme le téléphone » dans les réglages si tu veux.")
+        el("p", { class: "petit discret" }, "Le thème choisi ici reste en place : remets « Auto » dans les réglages si tu veux (Auto suit le réglage du téléphone).")
       );
       return { noeud };
     }
@@ -1465,6 +1491,17 @@ p { margin: 0; }
 
   // src/ecrans/composants/glissement.js
   var DUREE_SORTIE = 230;
+  var DUREE_VIBRATION = 35;
+  function vibrer(journal2) {
+    let ok = false;
+    try {
+      ok = Boolean(navigator.vibrate && navigator.vibrate(DUREE_VIBRATION));
+    } catch {
+      ok = false;
+    }
+    if (!ok && journal2) journal2("Vibration refusée par le navigateur", { api: Boolean(navigator.vibrate) });
+    return ok;
+  }
   var DUREE_RETOUR = 240;
   function activerGlissement(carte, options) {
     let depart = null;
@@ -1531,7 +1568,7 @@ p { margin: 0; }
       poser(dx, dy);
       montrerTampons(dx, dy, s);
       const franchi = avancement(dx, dy, s) >= 1;
-      if (franchi && !auSeuil && options.vibration() && navigator.vibrate) navigator.vibrate(12);
+      if (franchi && !auSeuil && options.vibration()) vibrer(options.journal);
       auSeuil = franchi;
     }
     function haut2(e) {
@@ -1662,7 +1699,15 @@ p { margin: 0; }
           changerReglage("geste", v);
           gGeste.majResume(resumeGeste());
         }),
-        el("div", { class: "ligne-interrupteur" }, el("span", null, "Petite vibration quand le seuil est franchi"), interVibration)
+        el("div", { class: "ligne-interrupteur" }, el("span", null, "Petite vibration quand le seuil est franchi"), interVibration),
+        el("button", {
+          type: "button",
+          class: "btn btn-secondaire",
+          onclick: () => {
+            const ok = vibrer((m, d) => journal.alerte(m, d));
+            toast(ok ? "Vibration envoyée. Rien senti ? Le mode silencieux ou les réglages de vibration du téléphone peuvent la bloquer." : "Chrome a refusé la vibration (détail dans le journal).");
+          }
+        }, "Tester la vibration")
       );
       function majEntete() {
         const fini = index >= CARTES.length;
@@ -1694,7 +1739,13 @@ p { margin: 0; }
           gauche: tampon("tampon-rate", "croix", "Raté"),
           haut: tampon("tampon-moitie", "moitie", "À moitié")
         };
-        const maReponse = el("p", { class: "carte-ma-reponse" });
+        const maReponse = el("p", {
+          class: "carte-ma-reponse",
+          onclick: (ev) => {
+            ev.stopPropagation();
+            maReponse.classList.toggle("deplie");
+          }
+        });
         const verso = el(
           "div",
           { class: "face verso" },
@@ -1733,7 +1784,7 @@ p { margin: 0; }
               s.voix = true;
               retourner();
             } },
-            "Je l’ai dit à voix haute"
+            "Répondu à voix haute"
           ),
           indice
         );
@@ -1762,7 +1813,7 @@ p { margin: 0; }
             retourner();
             return;
           }
-          indice.textContent = "Écris ta réponse ou touche « Je l’ai dit à voix haute »";
+          indice.textContent = "Écris ta réponse ou touche « Répondu à voix haute »";
           carte.classList.remove("secoue");
           void carte.offsetWidth;
           carte.classList.add("secoue");
@@ -1795,10 +1846,8 @@ p { margin: 0; }
         }
         const suivante = CARTES[index + 1];
         const carte = construireCarte(index, Boolean(annulee));
-        pileCartes.replaceChildren(
-          suivante ? el("div", { class: `carte-dessous app-${suivante.app}`, "aria-hidden": "true" }) : null,
-          carte
-        );
+        const dessous = suivante ? el("div", { class: `carte-dessous app-${suivante.app}`, "aria-hidden": "true" }) : el("div", { class: "carte-dessous carte-dessous-vide", "aria-hidden": "true" });
+        pileCartes.replaceChildren(dessous, carte);
         if (annulee) ctrl.entrer(annulee);
       }
       function evaluer(evaluation) {
@@ -1905,6 +1954,7 @@ p { margin: 0; }
     journal.surErreur((message) => {
       toast(`Un problème est survenu (${message}).`, { texte: "Journal", faire: () => ouvrir2("journal") });
     });
+    surSortieDemandee(() => toast("Refais retour pour quitter Revisea.", null, 3e3));
     demarrerNavigation(document.getElementById("app"), "accueil");
     if (MODE_TEST) return;
     if (!stockage.persistant) toast("Attention : les données ne peuvent pas être gardées sur ce navigateur.");
