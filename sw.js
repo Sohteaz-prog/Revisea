@@ -2,7 +2,7 @@
 // Le nom du cache est lié à la version : l'assemblage remplace le marqueur ci-dessous et refuse
 // de livrer si le numéro ne correspond pas à celui de index.html. L'appli relit ce numéro ici
 // (sw.js, jamais mis en cache) pour savoir s'il y a une mise à jour.
-const VERSION = '1.0-e1e';
+const VERSION = '1.0-e1f';
 const CACHE = 'revisea-' + VERSION;
 // index.html contient tout le code, les styles et les polices : c'est le seul fichier indispensable.
 const ESSENTIELS = ['./', 'index.html'];
